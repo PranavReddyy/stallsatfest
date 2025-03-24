@@ -39,15 +39,26 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
             setUpdating(true);
 
             const newAvailability = !isItemAvailable;
-            const itemRef = doc(db, `stalls/${stallId}/menu_items`, item.id);
 
-            // Update in Firestore
-            await updateDoc(itemRef, {
-                isAvailable: newAvailability,
-                updatedAt: serverTimestamp()
+            // Update Redis and trigger real-time updates via the API
+            const response = await fetch('/api/stock-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    stallId,
+                    type: 'item',
+                    itemId: item.id,
+                    availability: newAvailability
+                })
             });
 
-            // Update local state
+            if (!response.ok) {
+                throw new Error('Failed to update stock status');
+            }
+
+            // Update local state immediately for instant UI feedback
             setIsItemAvailable(newAvailability);
 
             // Trigger parent callback
@@ -58,29 +69,12 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
             // Show success message
             toast.success(`${item.name} is now ${newAvailability ? 'available' : 'unavailable'}`);
 
-            // Invalidate cache
-            try {
-                await fetch('/api/invalidate-cache', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': process.env.NEXT_PUBLIC_CACHE_INVALIDATION_API_KEY || 'your-temp-dev-key'
-                    },
-                    body: JSON.stringify({
-                        type: 'menu_item',
-                        stallId,
-                        itemId: item.id,
-                        updatedAvailability: newAvailability
-                    })
-                });
-
-                // Refresh the SWR cache
+            // Refresh the SWR cache after a short delay
+            setTimeout(() => {
                 if (refreshMenu) {
                     refreshMenu();
                 }
-            } catch (error) {
-                console.error('Failed to invalidate cache:', error);
-            }
+            }, 500);
 
         } catch (error) {
             console.error('Error updating item availability:', error);
@@ -98,23 +92,27 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
             setUpdating(true);
 
             const newAvailability = !extrasAvailability[extraId];
-            const itemRef = doc(db, `stalls/${stallId}/menu_items`, item.id);
 
-            // Get the current extras array
-            const updatedExtras = (item.extras || []).map(extra => {
-                if (extra.id === extraId) {
-                    return { ...extra, isAvailable: newAvailability };
-                }
-                return extra;
+            // Update Redis and trigger real-time updates via the API
+            const response = await fetch('/api/stock-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    stallId,
+                    type: 'extra',
+                    itemId: item.id,
+                    extraId,
+                    availability: newAvailability
+                })
             });
 
-            // Update in Firestore
-            await updateDoc(itemRef, {
-                extras: updatedExtras,
-                updatedAt: serverTimestamp()
-            });
+            if (!response.ok) {
+                throw new Error('Failed to update extra stock status');
+            }
 
-            // Update local state
+            // Update local state immediately
             setExtrasAvailability(prev => ({
                 ...prev,
                 [extraId]: newAvailability
@@ -126,29 +124,12 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
             // Show success message
             toast.success(`${extraName} is now ${newAvailability ? 'available' : 'unavailable'}`);
 
-            // Invalidate cache
-            try {
-                await fetch('/api/invalidate-cache', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': process.env.NEXT_PUBLIC_CACHE_INVALIDATION_API_KEY || 'your-temp-dev-key'
-                    },
-                    body: JSON.stringify({
-                        type: 'menu_item',
-                        stallId,
-                        itemId: item.id,
-                        updatedAvailability: null // Indicate it's an extra, not the main item
-                    })
-                });
-
-                // Refresh the SWR cache
+            // Refresh the SWR cache after a short delay
+            setTimeout(() => {
                 if (refreshMenu) {
                     refreshMenu();
                 }
-            } catch (error) {
-                console.error('Failed to invalidate cache:', error);
-            }
+            }, 500);
 
         } catch (error) {
             console.error('Error updating extra availability:', error);
@@ -167,29 +148,28 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
 
             const optionKey = `${customizationId}-${optionId}`;
             const newAvailability = !customOptionsAvailability[optionKey];
-            const itemRef = doc(db, `stalls/${stallId}/menu_items`, item.id);
 
-            // Get the current customizations array and update the specific option
-            const updatedCustomizations = (item.customizations || []).map(customization => {
-                if (customization.id === customizationId) {
-                    const updatedOptions = (customization.options || []).map(option => {
-                        if (option.id === optionId) {
-                            return { ...option, isAvailable: newAvailability };
-                        }
-                        return option;
-                    });
-                    return { ...customization, options: updatedOptions };
-                }
-                return customization;
+            // Update Redis and trigger real-time updates via the API
+            const response = await fetch('/api/stock-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    stallId,
+                    type: 'option',
+                    itemId: item.id,
+                    customId: customizationId,
+                    optionId,
+                    availability: newAvailability
+                })
             });
 
-            // Update in Firestore
-            await updateDoc(itemRef, {
-                customizations: updatedCustomizations,
-                updatedAt: serverTimestamp()
-            });
+            if (!response.ok) {
+                throw new Error('Failed to update option stock status');
+            }
 
-            // Update local state
+            // Update local state immediately
             setCustomOptionsAvailability(prev => ({
                 ...prev,
                 [optionKey]: newAvailability
@@ -202,29 +182,12 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
             // Show success message
             toast.success(`${optionName} is now ${newAvailability ? 'available' : 'unavailable'}`);
 
-            // Invalidate cache
-            try {
-                await fetch('/api/invalidate-cache', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': process.env.NEXT_PUBLIC_CACHE_INVALIDATION_API_KEY || 'your-temp-dev-key'
-                    },
-                    body: JSON.stringify({
-                        type: 'menu_item',
-                        stallId,
-                        itemId: item.id,
-                        updatedAvailability: null // Indicate it's a customization option, not the main item
-                    })
-                });
-
-                // Refresh the SWR cache
+            // Refresh the SWR cache after a short delay
+            setTimeout(() => {
                 if (refreshMenu) {
                     refreshMenu();
                 }
-            } catch (error) {
-                console.error('Failed to invalidate cache:', error);
-            }
+            }, 500);
 
         } catch (error) {
             console.error('Error updating customization option availability:', error);
@@ -338,8 +301,8 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
                                             <div
                                                 key={option.id}
                                                 className={`flex items-center justify-between p-2 rounded-lg border ${customOptionsAvailability[`${customization.id}-${option.id}`]
-                                                        ? 'border-gray-700 bg-gray-800/50'
-                                                        : 'border-red-900/50 bg-red-900/20'
+                                                    ? 'border-gray-700 bg-gray-800/50'
+                                                    : 'border-red-900/50 bg-red-900/20'
                                                     }`}
                                             >
                                                 <div className="flex items-center">
@@ -351,8 +314,8 @@ export default function ManageMenuItemStock({ item, stallId, onStockUpdate, refr
                                                 </div>
                                                 <div className="flex items-center">
                                                     <span className={`text-xs mr-2 ${customOptionsAvailability[`${customization.id}-${option.id}`]
-                                                            ? 'text-green-400'
-                                                            : 'text-red-400'
+                                                        ? 'text-green-400'
+                                                        : 'text-red-400'
                                                         }`}>
                                                         {customOptionsAvailability[`${customization.id}-${option.id}`] ? 'In Stock' : 'Out of Stock'}
                                                     </span>

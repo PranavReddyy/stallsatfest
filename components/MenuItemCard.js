@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Crimson_Text } from 'next/font/google';
 import Image from 'next/image';
+import { toast } from 'react-hot-toast';
 
 const crimsonText = Crimson_Text({
     weight: ['400', '600', '700'],
@@ -8,23 +9,34 @@ const crimsonText = Crimson_Text({
     display: 'swap',
 });
 
-export default function MenuItemCard({ item, onAddToCart }) {
+export default function MenuItemCard({ item, onAddToCart, cartItems = [] }) {
     const [quantity, setQuantity] = useState(0);
     const [isAdding, setIsAdding] = useState(false);
     const [animating, setAnimating] = useState(false);
     const [isRemoving, setIsRemoving] = useState(false);
+    const updateRef = useRef(null);
 
     // Check if the item is available
     const isAvailable = item.isAvailable !== false;
+
+    // Calculate total quantity across all versions of this item in cart
+    useEffect(() => {
+        if (cartItems && Array.isArray(cartItems)) {
+            const totalQuantity = cartItems
+                .filter(cartItem => cartItem.id === item.id)
+                .reduce((sum, cartItem) => sum + (cartItem.quantity || 0), 0);
+
+            if (totalQuantity !== quantity) {
+                setQuantity(totalQuantity);
+            }
+        }
+    }, [cartItems, item.id, quantity]);
 
     useEffect(() => {
         // Update isAvailable if the item props change
         const available = item.isAvailable !== false;
         console.log(`[MenuItemCard] ${item.name} availability: ${available}`);
     }, [item.isAvailable, item.name]);
-
-    // Create a ref to store the update function
-    const updateRef = useRef(null);
 
     // This specifically handles the initial add button click
     const handleInitialAdd = () => {
@@ -123,8 +135,6 @@ export default function MenuItemCard({ item, onAddToCart }) {
 
     return (
         <div className={`bg-gradient-to-br from-gray-800/90 to-gray-900/95 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-purple-900/30 hover:border-purple-800/50 ${!isAvailable ? 'opacity-75' : ''} relative`}>
-
-
             <div className="flex flex-row">
                 {item.image && (
                     <div className="w-1/4 relative bg-gradient-to-br from-gray-800 to-purple-900/40">

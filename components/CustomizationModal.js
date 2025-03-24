@@ -184,37 +184,38 @@ export default function CustomizationModal({ item, onClose, onSubmit }) {
                         const isExtraAvailable = extra.isAvailable !== false;
 
                         return (
-                            <div
-                                key={extra.id}
-                                className={`flex items-center justify-between p-2 rounded-lg ${!isExtraAvailable
+                            <div key={extra.id} className="ml-4 mb-2 mt-2 mr-4">
+                                <div
+                                    className={`flex items-center justify-between p-2 rounded-lg ${!isExtraAvailable
                                         ? 'bg-red-900/20 border border-red-900/30 cursor-not-allowed opacity-60'
                                         : extraSelections[extra.id]
                                             ? 'bg-purple-900/50 border border-purple-500/50 cursor-pointer'
                                             : 'bg-gray-800/50 border border-gray-700 hover:bg-gray-800 cursor-pointer'
-                                    }`}
-                                onClick={() => isExtraAvailable && handleExtraToggle(extra.id)}
-                            >
-                                <div className="flex items-center">
-                                    <div className={`w-4 h-4 rounded-sm mr-3 border ${!isExtraAvailable
+                                        }`}
+                                    onClick={() => isExtraAvailable && handleExtraToggle(extra.id)}
+                                >
+                                    <div className="flex items-center">
+                                        <div className={`w-4 h-4 rounded-sm mr-3 border ${!isExtraAvailable
                                             ? 'border-red-600'
                                             : extraSelections[extra.id]
                                                 ? 'border-purple-500 bg-purple-500 flex items-center justify-center'
                                                 : 'border-gray-600'
-                                        }`}>
-                                        {extraSelections[extra.id] && (
-                                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        )}
+                                            }`}>
+                                            {extraSelections[extra.id] && (
+                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <span className="text-white text-sm">{extra.name}</span>
+                                            {!isExtraAvailable && (
+                                                <span className="text-red-400 text-xs ml-2">Out of Stock</span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="text-white text-sm">{extra.name}</span>
-                                        {!isExtraAvailable && (
-                                            <span className="text-red-400 text-xs ml-2">Out of Stock</span>
-                                        )}
-                                    </div>
+                                    <span className="text-purple-300 text-sm">+₹{extra.price}</span>
                                 </div>
-                                <span className="text-purple-300 text-sm">+₹{extra.price}</span>
                             </div>
                         );
                     })}

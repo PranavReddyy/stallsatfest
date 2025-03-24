@@ -82,19 +82,20 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
     };
 
     // Handle change quantity with animation
-    const handleChangeQuantity = (index, newQuantity) => {
-        // Get the item from the items array using the index
-        const item = items[index];
+    const updateQuantity = (index, newQuantity) => {
+        const newItems = [...items];
 
-        // If quantity becomes 0, remove the item
         if (newQuantity <= 0) {
-            handleRemoveItem(index);
-            return;
+            // Remove the item entirely
+            newItems.splice(index, 1);
+        } else {
+            // Update quantity
+            newItems[index] = {
+                ...newItems[index],
+                quantity: newQuantity
+            };
         }
 
-        // Otherwise, update the quantity
-        const newItems = [...items];
-        newItems[index].quantity = newQuantity;
         setCart(newItems);
     };
 
@@ -190,6 +191,9 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                     const docRef = await addDoc(collection(db, 'orders'), orderData);
                     console.log('Order added to Firestore with ID:', docRef.id);
 
+                    // Create a temporary copy of all cart items BEFORE clearing the cart
+                    const cartItemsCopy = [...items];
+
                     // Clear cart and close the checkout
                     setCart([]);
                     onClose();
@@ -199,8 +203,17 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                     setPaymentSuccess(false);
                     setIsCheckingOut(false);
 
-                    // Reset all item counters by setting them to 0
-                    items.forEach(item => {
+                    // Reset all item quantities to 0 using both methods to ensure complete reset
+
+                    // Method 1: Using the itemRef.updateQuantity for items with direct references
+                    cartItemsCopy.forEach(item => {
+                        if (item.itemRef && item.itemRef.updateQuantity) {
+                            item.itemRef.updateQuantity(0);
+                        }
+                    });
+
+                    // Method 2: Using the direct updateQuantity method (for backward compatibility)
+                    cartItemsCopy.forEach(item => {
                         if (item.updateQuantity) {
                             item.updateQuantity(0);
                         }
@@ -220,34 +233,42 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
     };
 
     const groupedItems = () => {
-        const groups = [];
+        // Group items with identical customization fingerprints
+        const groupMap = items.reduce((acc, item, index) => {
+            // Create a composite key for grouping
+            const key = item.customizationFingerprint || `regular-${item.id}`;
 
-        items.forEach((item, index) => {
-            // Create a unique signature for this item and its customizations
-            const customOptionsString = item.selectedOptions?.join(',') || '';
-            const extrasString = item.selectedExtras?.join(',') || '';
-            const signature = `${item.id}-${customOptionsString}-${extrasString}`;
-
-            // Look for an existing group
-            const existingGroup = groups.find(g =>
-                g.signature === signature
-            );
-
-            if (existingGroup) {
-                // Add to existing group
-                existingGroup.quantity += item.quantity;
-                existingGroup.indices.push(index);
-            } else {
-                // Create a new group
-                groups.push({
+            if (!acc[key]) {
+                // Create a new group with the original index
+                acc[key] = {
                     ...item,
-                    signature,
-                    indices: [index]
-                });
+                    indices: [index],
+                    signature: key
+                };
+            } else {
+                // Add to existing group
+                acc[key].quantity += item.quantity;
+                acc[key].indices.push(index);
             }
-        });
 
-        return groups;
+            return acc;
+        }, {});
+
+        // Convert back to array
+        return Object.values(groupMap);
+    };
+
+    const resetAllItemQuantities = () => {
+        if (stall && stall.menu) {
+            // Reset all menu items to 0 quantity in UI
+            Object.values(stall.menu).forEach(categoryItems => {
+                categoryItems.forEach(menuItem => {
+                    if (menuItem.updateQuantity) {
+                        menuItem.updateQuantity(0);
+                    }
+                });
+            });
+        }
     };
 
     return (
@@ -594,7 +615,7 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                                                     <button
                                                         onClick={() => {
                                                             // Decrease quantity of the first item in the group
-                                                            handleChangeQuantity(group.indices[0], group.quantity - 1);
+                                                            updateQuantity(group.indices[0], group.quantity - 1);
                                                         }}
                                                         className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-700 text-white text-xs transition-all duration-200 active:scale-90"
                                                     >
@@ -606,7 +627,7 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                                                     <button
                                                         onClick={() => {
                                                             // Increase quantity of the first item in the group
-                                                            handleChangeQuantity(group.indices[0], group.quantity + 1);
+                                                            updateQuantity(group.indices[0], group.quantity + 1);
                                                         }}
                                                         className="w-5 h-5 flex items-center justify-center rounded-full bg-purple-700 hover:bg-purple-600 text-white text-xs transition-all duration-200 active:scale-90"
                                                     >

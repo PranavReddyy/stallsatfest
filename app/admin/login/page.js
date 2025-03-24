@@ -51,7 +51,7 @@ export default function AdminLogin() {
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
             if (user) {
                 // Check if the user's email is the admin email
-                if (user.email === 'stalls@aeon.com') {
+                if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
                     // Attempt to access an admin-only document to verify permissions
                     try {
                         // Try to read an admin document - this will be allowed by rules if admin
@@ -90,7 +90,7 @@ export default function AdminLogin() {
 
         try {
             // Check if the email is the admin email
-            if (values.email !== 'stalls@aeon.com') {
+            if (values.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
                 setError('You do not have admin privileges');
                 setIsLoading(false);
                 return;

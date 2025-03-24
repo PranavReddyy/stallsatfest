@@ -10,6 +10,8 @@ import Cart from '../../../components/Cart';
 import CustomizationModal from '../../../components/CustomizationModal';
 import { getStallWithMenu } from '../../../lib/stallsService';
 import useSWR from 'swr';
+import useSocket from '@/hooks/useSocket';
+
 
 // Define fetcher function at module level (this is fine)
 const fetcher = async (url) => {
@@ -37,9 +39,11 @@ const crimsonText = Crimson_Text({
 });
 
 export default function StallPage() {
+
     // Move params inside the component
     const params = useParams();
     const stallId = params.id;
+    const { isConnected, stockUpdates = [], clearStockUpdates } = useSocket(stallId);
 
     const [stall, setStall] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -98,26 +102,79 @@ export default function StallPage() {
         }
     );
 
-    // WebSocket connection for real-time updates
     useEffect(() => {
-        if (!stallId) return;
+        if (stockUpdates.length > 0 && stall) {
+            // Process each update
+            stockUpdates.forEach(update => {
+                // Create a deep copy of the current stall data
+                setStall(prevStall => {
+                    if (!prevStall) return prevStall;
 
-        // Only connect if stallId is available
-        const socket = new WebSocket(`wss://your-websocket-endpoint/${stallId}`);
+                    const newStall = JSON.parse(JSON.stringify(prevStall));
 
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+                    // Handle main item availability updates
+                    if (update.type === 'item' && update.itemId) {
+                        // Find and update the item in every category
+                        Object.keys(newStall.menu).forEach(category => {
+                            const itemIndex = newStall.menu[category].findIndex(item => item.id === update.itemId);
+                            if (itemIndex !== -1) {
+                                // Update the item's availability
+                                newStall.menu[category][itemIndex].isAvailable = update.availability;
+                            }
+                        });
+                    }
 
-            if (data.type === 'availability_update') {
-                // Trigger a refresh of the menu items
-                refreshMenu();
-            }
-        };
+                    // Handle extra item availability updates
+                    else if (update.type === 'extra' && update.itemId && update.extraId) {
+                        // Find the item first
+                        Object.keys(newStall.menu).forEach(category => {
+                            const itemIndex = newStall.menu[category].findIndex(item => item.id === update.itemId);
+                            if (itemIndex !== -1) {
+                                // Find the extra in the item
+                                const item = newStall.menu[category][itemIndex];
+                                if (item.extras && item.extras.length > 0) {
+                                    const extraIndex = item.extras.findIndex(extra => extra.id === update.extraId);
+                                    if (extraIndex !== -1) {
+                                        // Update the extra's availability
+                                        item.extras[extraIndex].isAvailable = update.availability;
+                                    }
+                                }
+                            }
+                        });
+                    }
 
-        return () => {
-            socket.close();
-        };
-    }, [stallId, refreshMenu]);
+                    // Handle customization option availability updates
+                    else if (update.type === 'option' && update.itemId && update.customId && update.optionId) {
+                        // Find the item first
+                        Object.keys(newStall.menu).forEach(category => {
+                            const itemIndex = newStall.menu[category].findIndex(item => item.id === update.itemId);
+                            if (itemIndex !== -1) {
+                                // Find the customization in the item
+                                const item = newStall.menu[category][itemIndex];
+                                if (item.customizations && item.customizations.length > 0) {
+                                    const customizationIndex = item.customizations.findIndex(c => c.id === update.customId);
+                                    if (customizationIndex !== -1) {
+                                        // Find the option in the customization
+                                        const customization = item.customizations[customizationIndex];
+                                        if (customization.options && customization.options.length > 0) {
+                                            const optionIndex = customization.options.findIndex(o => o.id === update.optionId);
+                                            if (optionIndex !== -1) {
+                                                // Update the option's availability
+                                                customization.options[optionIndex].isAvailable = update.availability;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    return newStall;
+                });
+            });
+            clearStockUpdates();
+        }
+    }, [stockUpdates, stall, clearStockUpdates]);
 
     useEffect(() => {
         // When menuItems data is available, update your state
@@ -339,109 +396,124 @@ export default function StallPage() {
                     // Remove just that one item
                     newCart.splice(indexToRemove, 1);
                     setCart(newCart);
-
-                    // Calculate the new total quantity for UI update
-                    const remainingItems = newCart.filter(i => i.id === item.id);
-                    const newTotalQuantity = remainingItems.reduce((sum, i) => sum + i.quantity, 0);
-
-                    // Update the UI
-                    if (item.updateQuantity) {
-                        if (newTotalQuantity > 0) {
-                            item.updateQuantity(newTotalQuantity);
-                        } else {
-                            item.updateQuantity(0);
-                        }
-                    }
                 }
             } else {
                 // If no versions found, remove all (shouldn't happen)
                 setCart(cart.filter(i => i.id !== item.id));
-                if (item.updateQuantity) {
-                    item.updateQuantity(0);
-                }
             }
             return;
         }
 
-        // Calculate total price with customizations and extras
-        let totalPrice = item.price;
-        let selectedOptions = [];
-        let selectedExtras = [];
+        // For customizations and extras
+        if (options.processed) {
+            // Calculate total price with customizations and extras
+            let totalPrice = item.price;
+            let selectedOptions = [];
+            let selectedExtras = [];
 
-        // Create a unique version key for this customization
-        let versionKey = `v_${Date.now()}`;
+            // Create a fingerprint for this exact customization
+            let customizationFingerprint = '';
 
-        // Handle customizations from modal submission
-        if (options.processed && options.options) {
-            Object.entries(options.options).forEach(([customId, optionId]) => {
-                const customization = item.customizations?.find(c => c.id === customId);
-                if (customization) {
-                    const option = customization.options.find(o => o.id === optionId);
-                    if (option) {
-                        totalPrice += option.price;
-                        selectedOptions.push(option.name);
+            // Process customizations
+            if (options.options) {
+                // Sort customization keys for consistent fingerprinting
+                const sortedCustomKeys = Object.keys(options.options).sort();
+
+                sortedCustomKeys.forEach(customId => {
+                    const optionId = options.options[customId];
+                    customizationFingerprint += `${customId}:${optionId};`;
+
+                    const customization = item.customizations?.find(c => c.id === customId);
+                    if (customization) {
+                        const option = customization.options.find(o => o.id === optionId);
+                        if (option) {
+                            totalPrice += option.price;
+                            selectedOptions.push(option.name);
+                        }
                     }
-                }
-            });
-        }
-
-        // Add extras prices
-        if (options.processed && options.selected) {
-            Object.entries(options.selected).forEach(([extraId, isSelected]) => {
-                if (isSelected) {
-                    const extra = item.extras?.find(e => e.id === extraId);
-                    if (extra) {
-                        totalPrice += extra.price;
-                        selectedExtras.push(extra.name);
-                    }
-                }
-            });
-        }
-
-        // Create cart item
-        const cartItem = {
-            id: item.id,
-            name: item.name,
-            price: totalPrice,
-            basePrice: item.price,
-            quantity: 1, // Always add 1 for a customized item
-            customizations: options.processed ? options.options : {},
-            extras: options.processed ? options.selected : {},
-            selectedOptions,
-            selectedExtras,
-            isVeg: item.isVeg,
-            versionKey,
-            itemRef: item // Keep reference to update UI
-        };
-
-        // Get total quantity of this item across all versions
-        let totalQuantity = 0;
-        const hasCustomization = item.customizations || item.extras;
-
-        if (hasCustomization && options.processed) {
-            // For customized items, add a new entry with quantity 1
-            setCart([...cart, cartItem]);
-
-            // Calculate the new total quantity
-            totalQuantity = cart.filter(i => i.id === item.id).reduce((sum, i) => sum + i.quantity, 0) + 1;
-        } else if (!hasCustomization) {
-            // For regular items without customization, just update quantity
-            const existingItem = cart.find(i => i.id === item.id && !i.versionKey);
-
-            if (existingItem) {
-                setCart(cart.map(i =>
-                    i.id === item.id && !i.versionKey ? { ...i, quantity } : i
-                ));
-                totalQuantity = quantity;
-            } else {
-                setCart([...cart, { ...cartItem, versionKey: undefined, quantity }]);
-                totalQuantity = quantity;
+                });
             }
-        }
 
-        // Update the UI counter with the total quantity
-        if (item.updateQuantity) {
-            item.updateQuantity(totalQuantity);
+            // Process extras
+            if (options.selected) {
+                // Sort extras keys for consistent fingerprinting
+                const sortedExtraKeys = Object.keys(options.selected).sort();
+
+                sortedExtraKeys.forEach(extraId => {
+                    const isSelected = options.selected[extraId];
+                    if (isSelected) {
+                        customizationFingerprint += `e:${extraId};`;
+
+                        const extra = item.extras?.find(e => e.id === extraId);
+                        if (extra) {
+                            totalPrice += extra.price;
+                            selectedExtras.push(extra.name);
+                        }
+                    }
+                });
+            }
+
+            // Check if this exact customization already exists in cart
+            const existingItemIndex = cart.findIndex(cartItem =>
+                cartItem.id === item.id &&
+                cartItem.customizationFingerprint === customizationFingerprint
+            );
+
+            if (existingItemIndex !== -1) {
+                // Update existing customized item
+                const newCart = [...cart];
+                newCart[existingItemIndex] = {
+                    ...newCart[existingItemIndex],
+                    quantity: newCart[existingItemIndex].quantity + 1
+                };
+                setCart(newCart);
+            } else {
+                // Add new customized item
+                const cartItem = {
+                    id: item.id,
+                    name: item.name,
+                    price: totalPrice,
+                    basePrice: item.price,
+                    quantity: 1,
+                    customizations: options.options || {},
+                    extras: options.selected || {},
+                    selectedOptions,
+                    selectedExtras,
+                    isVeg: item.isVeg,
+                    versionKey: `v_${Date.now()}`,
+                    customizationFingerprint,
+                    itemRef: item
+                };
+
+                setCart([...cart, cartItem]);
+            }
+        } else {
+            // For regular items without customization
+            const existingItemIndex = cart.findIndex(i =>
+                i.id === item.id &&
+                !i.customizationFingerprint
+            );
+
+            if (existingItemIndex !== -1) {
+                // Update existing regular item
+                const newCart = [...cart];
+                newCart[existingItemIndex] = {
+                    ...newCart[existingItemIndex],
+                    quantity: quantity
+                };
+                setCart(newCart);
+            } else {
+                // Add new regular item
+                setCart([...cart, {
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    basePrice: item.price,
+                    quantity: quantity,
+                    isVeg: item.isVeg,
+                    versionKey: `v_${Date.now()}`
+                }]);
+            }
         }
 
         // Show cart if this is the first item
@@ -490,6 +562,9 @@ export default function StallPage() {
                 categoryItems.forEach(menuItem => {
                     if (menuItem.updateQuantity && itemQuantities[menuItem.id] !== undefined) {
                         menuItem.updateQuantity(itemQuantities[menuItem.id]);
+                    } else if (menuItem.updateQuantity && !itemQuantities[menuItem.id]) {
+                        // If item is not in cart anymore, reset to 0
+                        menuItem.updateQuantity(0);
                     }
                 });
             });
@@ -604,6 +679,14 @@ export default function StallPage() {
                     </div>
                 </div>
             </div>
+            {isConnected && (
+                <div className="fixed bottom-4 right-4 z-50">
+                    <span className="flex items-center gap-1 bg-black/70 backdrop-blur-sm text-xs px-2 py-1 rounded-full text-green-400 border border-green-500/20">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Live
+                    </span>
+                </div>
+            )}
 
             {/* Menu categories and items */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 pb-32">
@@ -642,6 +725,7 @@ export default function StallPage() {
                                             key={item.id}
                                             item={item}
                                             onAddToCart={handleAddToCart}
+                                            cartItems={cart}
                                         />
                                     ))}
                                 </div>
@@ -665,7 +749,7 @@ export default function StallPage() {
                     }`}
             >
                 {!showAllCategories ? (
-                    // Collapsed floating navigation
+                    // Collapsed floating navigation - Keep this part unchanged
                     <div className="bg-gray-900/95 backdrop-blur-md px-3 py-2 rounded-full shadow-xl border border-purple-800/40 flex items-center gap-3">
                         <button
                             onClick={goToPrevCategory}
@@ -701,7 +785,7 @@ export default function StallPage() {
                         </button>
                     </div>
                 ) : (
-                    // Expanded floating categories list
+                    // NEW Expanded floating categories list - Shows only the category names
                     <div className="bg-gray-900/95 backdrop-blur-md p-4 rounded-xl shadow-xl border border-purple-800/40 max-w-xs w-64 animate-fadeIn">
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="text-white font-medium">Categories</h3>
@@ -716,13 +800,13 @@ export default function StallPage() {
                         </div>
 
                         <div className="space-y-1.5 max-h-64 overflow-y-auto hide-scrollbar">
-                            {Object.keys(stall.menu).map((category) => (
+                            {Object.keys(stall.menu).map((category, index) => (
                                 <button
                                     key={category}
                                     onClick={() => scrollToCategory(category)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 ${activeCategory === category
-                                        ? 'bg-purple-800 text-white'
-                                        : 'text-gray-300 hover:bg-gray-800'
+                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${activeCategory === category
+                                            ? 'bg-purple-700/60 text-white font-medium'
+                                            : 'text-gray-300 hover:bg-gray-800/70'
                                         }`}
                                 >
                                     {category}

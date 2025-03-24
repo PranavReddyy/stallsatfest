@@ -41,7 +41,6 @@ const stalls = [
                 description: "Crispy lettuce, tomatoes, green peppers, onions, olives on freshly baked bread.",
                 category: "Sandwiches",
                 isVeg: true,
-                image: "/images/menu/veggie-delite.jpg",
                 isAvailable: true,
                 position: 1,
                 extras: [
@@ -134,7 +133,6 @@ const stalls = [
                 description: "Tender chunks of grilled chicken with teriyaki sauce on freshly baked bread.",
                 category: "Sandwiches",
                 isVeg: false,
-                image: "/images/menu/chicken-teriyaki.jpg",
                 isAvailable: true,
                 position: 2,
                 extras: [
@@ -191,7 +189,6 @@ const stalls = [
                 description: "Delicious veggie patty with your choice of fresh vegetables and condiments.",
                 category: "Sandwiches",
                 isVeg: true,
-                image: "/images/menu/veggie-patty.jpg",
                 isAvailable: true,
                 position: 3,
                 extras: [
@@ -202,8 +199,126 @@ const stalls = [
                         isVeg: true,
                         isAvailable: true
                     }
+                ]
+            },
+            {
+                name: "Italian B.M.T.",
+                price: 299,
+                description: "A hearty sandwich with Genoa salami, pepperoni, and ham, topped with your choice of vegetables.",
+                category: "Sandwiches",
+                isVeg: false,
+                isAvailable: true,
+                position: 4,
+                extras: [
+                    {
+                        id: "extra1",
+                        name: "Extra Cheese",
+                        price: 35,
+                        isVeg: true,
+                        isAvailable: true
+                    },
+                    {
+                        id: "extra2",
+                        name: "Double Meat",
+                        price: 60,
+                        isVeg: false,
+                        isAvailable: true
+                    }
                 ],
-                customizations: []
+                customizations: [
+                    {
+                        id: "custom1",
+                        name: "Bread Type",
+                        type: "single",
+                        required: true,
+                        options: [
+                            {
+                                id: "option1",
+                                name: "Italian",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option2",
+                                name: "Multigrain",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option3",
+                                name: "Parmesan Oregano",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "Tuna Sub",
+                price: 269,
+                description: "Flaked tuna, mixed with mayo, and your choice of vegetables on freshly baked bread.",
+                category: "Sandwiches",
+                isVeg: false,
+                isAvailable: true,
+                position: 5,
+                extras: [
+                    {
+                        id: "extra1",
+                        name: "Extra Cheese",
+                        price: 35,
+                        isVeg: true,
+                        isAvailable: true
+                    }
+                ]
+            },
+            {
+                name: "Chicken & Bacon Ranch Melt",
+                price: 319,
+                description: "Tender chicken with crispy bacon, melted cheese, and ranch dressing.",
+                category: "Sandwiches",
+                isVeg: false,
+                isAvailable: true,
+                position: 6
+            },
+            {
+                name: "Spinach Wrap",
+                price: 259,
+                description: "Your choice of fillings wrapped in a spinach tortilla.",
+                category: "Wraps",
+                isVeg: true,
+                isAvailable: true,
+                position: 7
+            },
+            {
+                name: "Caesar Salad",
+                price: 229,
+                description: "Fresh romaine lettuce, grated parmesan cheese, and croutons with Caesar dressing.",
+                category: "Salads",
+                isVeg: true,
+                isAvailable: true,
+                position: 8,
+                extras: [
+                    {
+                        id: "extra1",
+                        name: "Add Chicken",
+                        price: 50,
+                        isVeg: false,
+                        isAvailable: true
+                    }
+                ]
+            },
+            {
+                name: "Chocolate Chip Cookie",
+                price: 69,
+                description: "Freshly baked cookie with chocolate chips.",
+                category: "Desserts",
+                isVeg: true,
+                isAvailable: true,
+                position: 9
             }
         ]
     },
@@ -223,7 +338,6 @@ const stalls = [
                 description: "Rich espresso with steamed milk and a light layer of foam.",
                 category: "Coffee",
                 isVeg: true,
-                image: "/images/menu/caffe-latte.jpg",
                 isAvailable: true,
                 position: 1,
                 extras: [
@@ -316,7 +430,6 @@ const stalls = [
                 description: "Slow-steeped, super-smooth cold coffee served over ice.",
                 category: "Coffee",
                 isVeg: true,
-                image: "/images/menu/cold-brew.jpg",
                 isAvailable: true,
                 position: 2,
                 extras: [
@@ -373,9 +486,193 @@ const stalls = [
                 description: "Moist, tender muffin bursting with blueberries and a hint of lemon.",
                 category: "Pastries",
                 isVeg: true,
-                image: "/images/menu/blueberry-muffin.jpg",
                 isAvailable: true,
                 position: 3
+            },
+            {
+                name: "Caramel Macchiato",
+                price: 289,
+                description: "Espresso with vanilla-flavored syrup, milk, and caramel sauce.",
+                category: "Coffee",
+                isVeg: true,
+                isAvailable: true,
+                position: 4,
+                extras: [
+                    {
+                        id: "extra1",
+                        name: "Extra Shot",
+                        price: 50,
+                        isVeg: true,
+                        isAvailable: true
+                    }
+                ],
+                customizations: [
+                    {
+                        id: "custom1",
+                        name: "Milk Options",
+                        type: "single",
+                        required: true,
+                        options: [
+                            {
+                                id: "option1",
+                                name: "Whole Milk",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option2",
+                                name: "Almond Milk",
+                                price: 40,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option3",
+                                name: "Soy Milk",
+                                price: 40,
+                                isVeg: true,
+                                isAvailable: true
+                            }
+                        ]
+                    },
+                    {
+                        id: "custom2",
+                        name: "Size",
+                        type: "single",
+                        required: true,
+                        options: [
+                            {
+                                id: "option1",
+                                name: "Tall",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option2",
+                                name: "Grande",
+                                price: 40,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option3",
+                                name: "Venti",
+                                price: 80,
+                                isVeg: true,
+                                isAvailable: true
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "Chai Tea Latte",
+                price: 239,
+                description: "Black tea infused with cinnamon, clove, and other warming spices, combined with steamed milk.",
+                category: "Beverages",
+                isVeg: true,
+                isAvailable: true,
+                position: 5,
+                customizations: [
+                    {
+                        id: "custom1",
+                        name: "Size",
+                        type: "single",
+                        required: true,
+                        options: [
+                            {
+                                id: "option1",
+                                name: "Tall",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option2",
+                                name: "Grande",
+                                price: 40,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option3",
+                                name: "Venti",
+                                price: 80,
+                                isVeg: true,
+                                isAvailable: true
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "Iced Americano",
+                price: 199,
+                description: "Espresso shots topped with cold water to produce a light layer of crema, then served over ice.",
+                category: "Coffee",
+                isVeg: true,
+                isAvailable: true,
+                position: 6
+            },
+            {
+                name: "Chocolate Croissant",
+                price: 190,
+                description: "Butter croissant filled with chocolate batons.",
+                category: "Pastries",
+                isVeg: true,
+                isAvailable: true,
+                position: 7
+            },
+            {
+                name: "Strawberry Açaí Refresher",
+                price: 229,
+                description: "Sweet strawberry flavors with açaí notes and accents of passion fruit, served over ice.",
+                category: "Beverages",
+                isVeg: true,
+                isAvailable: true,
+                position: 8,
+                customizations: [
+                    {
+                        id: "custom1",
+                        name: "Size",
+                        type: "single",
+                        required: true,
+                        options: [
+                            {
+                                id: "option1",
+                                name: "Tall",
+                                price: 0,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option2",
+                                name: "Grande",
+                                price: 40,
+                                isVeg: true,
+                                isAvailable: true
+                            },
+                            {
+                                id: "option3",
+                                name: "Venti",
+                                price: 80,
+                                isVeg: true,
+                                isAvailable: true
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "Chicken & Hummus Protein Box",
+                price: 349,
+                description: "Grilled chicken, hummus, fresh vegetables, and pita bread in a convenient grab-and-go box.",
+                category: "Snacks",
+                isVeg: false,
+                isAvailable: true,
+                position: 9
             }
         ]
     }
@@ -432,7 +729,13 @@ async function populateStalls() {
             const { menuItems, ...stallData } = stall;
 
             // Add stall to Firestore
-            const stallRef = await db.collection('stalls').add(stallData);
+            const stallRef = await db.collection('stalls').add({
+                ...stallData,
+                // Add Redis connection field
+                redisConnected: false,
+                lastSyncTime: admin.firestore.FieldValue.serverTimestamp()
+            });
+
             stallRefs[stall.name] = stallRef.id;
             console.log(`Added stall: ${stall.name} with ID: ${stallRef.id}`);
 
@@ -440,6 +743,10 @@ async function populateStalls() {
             for (const item of menuItems) {
                 const menuItemRef = await db.collection(`stalls/${stallRef.id}/menu_items`).add({
                     ...item,
+                    // Ensure these fields exist for Redis caching
+                    isAvailable: item.isAvailable || true,
+                    lastAvailabilityUpdate: admin.firestore.FieldValue.serverTimestamp(),
+                    redisTracked: true,
                     createdAt: timestamp,
                     updatedAt: timestamp
                 });
@@ -451,6 +758,36 @@ async function populateStalls() {
         return stallRefs;
     } catch (error) {
         console.error('Error populating database:', error);
+        throw error;
+    }
+}
+
+async function createSystemSettings() {
+    try {
+        // Create system settings document
+        await db.collection('settings').doc('websockets').set({
+            enabled: true,
+            maxConnections: 500,
+            pingInterval: 30, // in seconds
+            lastRestart: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: timestamp,
+            updatedAt: timestamp
+        });
+
+        // Create Redis settings
+        await db.collection('settings').doc('redis').set({
+            enabled: true,
+            cacheTTL: 3600, // 1 hour in seconds
+            cacheMenuItems: true,
+            cacheUserSessions: true,
+            lastSync: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: timestamp,
+            updatedAt: timestamp
+        });
+
+        console.log('System settings created for WebSockets and Redis');
+    } catch (error) {
+        console.error('Error creating system settings:', error);
         throw error;
     }
 }
@@ -493,10 +830,68 @@ async function createStallOwners(adminUid, stallRefs) {
     }
 }
 
+async function invalidateCache() {
+    console.log('Invalidating application cache...');
+
+    try {
+        // This approach works in both local dev and production
+        const apiUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiUrl}/api/invalidate-cache`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': 'dev-temp-key'
+            },
+            body: JSON.stringify({
+                type: 'all',
+                stallId: 'all'
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Cache invalidation completed successfully:', data);
+        } else {
+            console.error('Failed to invalidate cache:', await response.text());
+        }
+    } catch (error) {
+        console.error('Error invalidating cache:', error);
+    }
+}
+
+async function deleteStallAndMenuItems(stallId) {
+    // Delete menu items first
+    const menuItemsSnapshot = await db.collection(`stalls/${stallId}/menu_items`).get();
+    for (const doc of menuItemsSnapshot.docs) {
+        await doc.ref.delete();
+    }
+
+    // Then delete the stall
+    await db.collection('stalls').doc(stallId).delete();
+
+    console.log(`Deleted stall ${stallId} and all its menu items`);
+}
+
+async function clearExistingData() {
+    // Delete stalls collection (this is recursive and will delete subcollections too)
+    const stallsSnapshot = await db.collection('stalls').get();
+    const batchDeletes = [];
+
+    for (const doc of stallsSnapshot.docs) {
+        batchDeletes.push(deleteStallAndMenuItems(doc.id));
+    }
+
+    await Promise.all(batchDeletes);
+    console.log('Existing data cleared');
+}
+
 // Main function to run the script
 async function main() {
     try {
         console.log('Starting database population...');
+
+        // Uncomment the following line if you want to clear existing data
+        // await clearExistingData();
 
         // Create admin user
         const adminUid = await createAdminUser();
@@ -504,8 +899,13 @@ async function main() {
         // Populate stalls and menu items
         const stallRefs = await populateStalls();
 
+        // Create system settings for WebSockets and Redis
+        await createSystemSettings();
+
         // Set up stall owners
         await createStallOwners(adminUid, stallRefs);
+
+        await invalidateCache();
 
         console.log('\nDatabase setup completed successfully!');
         console.log('\nIMPORTANT: You need to manually create Firebase Authentication users for these stall owners:');
