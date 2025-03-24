@@ -394,7 +394,7 @@ export default function Analytics() {
                     <div className="mt-6 bg-gray-900/60 rounded-xl p-4 animate-fadeIn" style={{ animationDelay: '0.7s' }}>
                         <h3 className="text-sm font-medium text-gray-300 mb-2">Pro Tips:</h3>
                         <ul className="text-sm text-gray-400 space-y-1">
-                            <li>• Your popular items are your money makers - make sure you're always stocked up!</li>
+                            <li>• Your popular items are your money makers - make sure you&apos;re always stocked up!</li>
                             <li>• Consider discounting slower moving items to increase overall sales volume.</li>
                             <li>• Remember that your earnings are calculated as 90% of total sales.</li>
                         </ul>

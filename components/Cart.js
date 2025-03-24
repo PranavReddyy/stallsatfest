@@ -500,7 +500,7 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                                     <div className="text-center py-10">
                                         <div className="mx-auto w-12 h-12 border-t-4 border-b-4 border-purple-500 rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-600">Processing your payment...</p>
-                                        <p className="text-gray-500 text-sm mt-2">Please don't close this window</p>
+                                        <p className="text-gray-500 text-sm mt-2">Please don&apos;t close this window</p>
                                     </div>
                                 ) : (
                                     <>
