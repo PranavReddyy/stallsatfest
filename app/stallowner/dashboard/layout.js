@@ -8,7 +8,6 @@ import { Crimson_Text } from 'next/font/google';
 import { auth, db } from '@/lib/firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
-import DashboardFooter from '@/components/DashboardFooter';
 
 
 const crimsonText = Crimson_Text({
@@ -316,7 +315,6 @@ export default function DashboardLayout({ children }) {
                 <div className="flex-1 md:ml-64 pt-[65px] md:pt-0">
                     {children}
                 </div>
-                <DashboardFooter />
             </div>
         </div>
     );

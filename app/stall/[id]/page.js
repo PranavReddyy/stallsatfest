@@ -638,9 +638,9 @@ export default function StallPage() {
             {/* Sticky header with veg/non-veg filter */}
             <div
                 ref={navRef}
-                className={`sticky z-20 bg-slate-900/20 backdrop-blur-md  ${headerVisible ? '-translate-y-full' : '-translate-y-full'
+                className={`sticky z-20 bg-black backdrop-blur-md  ${headerVisible ? '-translate-y-full' : '-translate-y-full'
                     }`}
-                style={{ top: '152.5px' }} // Exactly the height of the navbar
+                style={{ top: '151px' }} // Exactly the height of the navbar
             >
                 <div className="max-w-7xl mx-auto px-4 ¯sm:px-6 lg:px-8 py-3">
                     {/* Veg/Non-veg filter */}
@@ -745,7 +745,10 @@ export default function StallPage() {
 
             {/* Floating Category Navigation - Swiggy Style */}
             <div
-                className={`fixed bottom-35 left-1/2 transform -translate-x-1/2 z-30 transition-all duration-300 ${showFloatingNav ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'
+                className={`fixed left-1/2 transform -translate-x-1/2 z-30 transition-all duration-300 ${showFloatingNav ? 'opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'
+                    } ${
+                    // This moves the navigation up when cart is visible
+                    showCart && cart.length > 0 ? 'bottom-[140px]' : 'bottom-10'
                     }`}
             >
                 {!showAllCategories ? (
@@ -805,8 +808,8 @@ export default function StallPage() {
                                     key={category}
                                     onClick={() => scrollToCategory(category)}
                                     className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${activeCategory === category
-                                            ? 'bg-purple-700/60 text-white font-medium'
-                                            : 'text-gray-300 hover:bg-gray-800/70'
+                                        ? 'bg-purple-700/60 text-white font-medium'
+                                        : 'text-gray-300 hover:bg-gray-800/70'
                                         }`}
                                 >
                                     {category}

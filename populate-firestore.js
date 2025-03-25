@@ -743,6 +743,8 @@ async function populateStalls() {
             for (const item of menuItems) {
                 const menuItemRef = await db.collection(`stalls/${stallRef.id}/menu_items`).add({
                     ...item,
+                    extras: item.extras || [],
+                    customizations: item.customizations || [],
                     // Ensure these fields exist for Redis caching
                     isAvailable: item.isAvailable || true,
                     lastAvailabilityUpdate: admin.firestore.FieldValue.serverTimestamp(),

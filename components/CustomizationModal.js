@@ -179,7 +179,7 @@ export default function CustomizationModal({ item, onClose, onSubmit }) {
                     )}
 
                     {/* Extras */}
-                    {item.extras.map((extra) => {
+                    {item.extras && item.extras.map((extra) => {
                         // Check if extra is available
                         const isExtraAvailable = extra.isAvailable !== false;
 
