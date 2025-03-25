@@ -62,10 +62,18 @@ export default function StallPage() {
     const [lastScrollY, setLastScrollY] = useState(0);
     const [showFloatingNav, setShowFloatingNav] = useState(false);
     const [showAllCategories, setShowAllCategories] = useState(false);
+    const [stickyCategoryId, setStickyCategoryId] = useState(null);
+    const categoryHeaderRefs = useRef({});
+    const categoryContentRefs = useRef({});
+    const filterBarHeight = useRef(0);
+    const [pushingCategoryId, setPushingCategoryId] = useState(null);
+    const [pushProgress, setPushProgress] = useState(0);
+
 
     // Refs for elements
     const categoryRefs = useRef({});
     const navRef = useRef(null);
+
 
     // Move SWR hooks inside the component
     const { data: stallsData, mutate: refreshStalls } = useSWR('/api/stalls', fetcher, {
@@ -96,7 +104,7 @@ export default function StallPage() {
         {
             revalidateOnFocus: false,
             revalidateIfStale: false,
-            dedupingInterval: 86400000, // 1 day
+            dedupingInterval: 89500000, // 1 day
             refreshInterval: 0,  // Don't auto-refresh
             refreshWhenOffline: false,
         }
@@ -273,23 +281,41 @@ export default function StallPage() {
             // Show floating nav when scrolled past the first category
             setShowFloatingNav(currentScrollY > 200);
 
-            // Update active category based on scroll position
+            // Calculate the navbar + filter height offset
+            const navbarHeight = 95; // Your navbar height
+            const filterHeight = navRef.current?.offsetHeight || 50;
+            const totalOffset = navbarHeight + filterHeight;
+
+            // Update active category based on scroll position using the scroll target elements
             if (stall) {
                 const categories = Object.keys(stall.menu);
+                let activeFound = false;
+
+                // Start from the bottom and work up to handle overlapping sections correctly
                 for (let i = categories.length - 1; i >= 0; i--) {
                     const category = categories[i];
-                    const element = document.getElementById(`category-${category}`);
+                    const element = document.getElementById(`scroll-target-${category}`);
+
                     if (element) {
                         const rect = element.getBoundingClientRect();
-                        // Adjust threshold to account for both navbar and filters
-                        if (rect.top <= 150) {
+
+                        // Use the scroll target's position plus a small buffer (10px) to determine visibility
+                        if (rect.top <= totalOffset + 10) {
                             if (activeCategory !== category) {
                                 setActiveCategory(category);
                                 setActiveCategoryIndex(i);
                             }
+                            activeFound = true;
                             break;
                         }
                     }
+                }
+
+                // If no category is found in view (we're above all categories)
+                // set the first category as active
+                if (!activeFound && categories.length > 0 && activeCategory !== categories[0]) {
+                    setActiveCategory(categories[0]);
+                    setActiveCategoryIndex(0);
                 }
             }
         };
@@ -341,13 +367,16 @@ export default function StallPage() {
     // Smooth scroll to category
     const scrollToCategory = (category) => {
         setActiveCategory(category);
-        const element = document.getElementById(`category-${category}`);
+        const element = document.getElementById(`scroll-target-${category}`);
         if (element) {
-            // Account for both navbar (64px) and filters section (approximately 50px)
-            const navbarHeight = 64;
-            const filtersHeight = 50;
+            // Get heights for calculations
+            const navbarHeight = 95; // Navbar height
+            const filterHeight = navRef.current?.offsetHeight || 50;
+            const totalOffset = navbarHeight + filterHeight - 20; // Add 20px padding
+
+            // Calculate position
             const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-            const offsetPosition = elementPosition - navbarHeight - filtersHeight;
+            const offsetPosition = elementPosition - totalOffset;
 
             window.scrollTo({
                 top: offsetPosition,
@@ -571,6 +600,91 @@ export default function StallPage() {
         }
     }, [cart, stall]);
 
+    useEffect(() => {
+        if (!stall) return;
+
+        // Function to determine which category header should be sticky
+        const handleCategoryTracking = () => {
+            const navbarHeight = 95; // Your navbar height
+            const filterHeight = navRef.current?.offsetHeight || 50;
+            const totalOffset = navbarHeight + filterHeight;
+
+            // Store filter bar height for other calculations
+            filterBarHeight.current = filterHeight;
+
+            // Get all category keys
+            const categories = Object.keys(stall.menu);
+
+            // Default to no sticky header
+            let newStickyCategory = null;
+            let pushingCategory = null; // Track the category that's about to push
+            let pushProgress = 0;       // Track the push progress (0 to 1)
+
+            for (let i = 0; i < categories.length; i++) {
+                const category = categories[i];
+                const headerRef = categoryHeaderRefs.current[category];
+                const contentRef = categoryContentRefs.current[category];
+
+                if (!headerRef || !contentRef) continue;
+
+                const headerRect = headerRef.getBoundingClientRect();
+                const contentRect = contentRef.getBoundingClientRect();
+                const headerHeight = headerRect.height;
+
+                // Check if we're in the current category's content area
+                if (contentRect.bottom > totalOffset + headerHeight) {
+                    // This is the current category in view
+                    if (headerRect.top <= totalOffset) {
+                        newStickyCategory = category;
+
+                        // Check if we need to start pushing this header out
+                        if (i < categories.length - 1) {
+                            // Get the next category header
+                            const nextCategory = categories[i + 1];
+                            const nextHeaderRef = categoryHeaderRefs.current[nextCategory];
+
+                            if (nextHeaderRef) {
+                                const nextHeaderRect = nextHeaderRef.getBoundingClientRect();
+
+                                // Calculate how close the next header is to pushing this one
+                                // When nextHeaderRect.top equals totalOffset + headerHeight,
+                                // the next header is just about to touch the bottom of the current sticky header
+                                const distanceToSticky = nextHeaderRect.top - (totalOffset + headerHeight);
+
+                                // Start the push effect when within pushThreshold pixels
+                                const pushThreshold = headerHeight;
+
+                                if (distanceToSticky <= 0 && distanceToSticky > -headerHeight) {
+                                    // Next header is actively pushing the current one
+                                    pushingCategory = nextCategory;
+
+                                    // Simple linear progress for exact physical tracking
+                                    pushProgress = Math.abs(distanceToSticky) / headerHeight;
+
+                                    // No easing - this creates the most accurate "physical" push feeling
+                                    // that exactly follows scroll position
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // Update state with all the tracking information
+            setStickyCategoryId(newStickyCategory);
+            setPushingCategoryId(pushingCategory);
+            setPushProgress(pushProgress);
+        };
+
+        // Add scroll event listener
+        window.addEventListener('scroll', handleCategoryTracking);
+        // Run once on mount to initialize
+        handleCategoryTracking();
+
+        return () => window.removeEventListener('scroll', handleCategoryTracking);
+    }, [stall, stickyCategoryId]);
+
 
     if (loading) {
         return (
@@ -614,8 +728,8 @@ export default function StallPage() {
             <Navbar />
 
             {/* Stall header */}
-            <div className="border-t border-gray-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-15">
+            <div>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-0">
                     <div className="flex items-center mb-6">
                         <div className="w-24 h-24 relative mr-4">
                             <Image
@@ -638,43 +752,55 @@ export default function StallPage() {
             {/* Sticky header with veg/non-veg filter */}
             <div
                 ref={navRef}
-                className={`sticky z-20 bg-black backdrop-blur-md  ${headerVisible ? '-translate-y-full' : '-translate-y-full'
-                    }`}
-                style={{ top: '151px' }} // Exactly the height of the navbar
+                className="sticky z-20 bg-black"
+                style={{ top: '95px' }} // Exactly the height of the navbar
             >
-                <div className="max-w-7xl mx-auto px-4 ¯sm:px-6 lg:px-8 py-3">
-                    {/* Veg/Non-veg filter */}
-                    <div className="flex items-center">
-                        <div className="flex space-x-2">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            {/* Back button */}
                             <button
-                                onClick={() => setFilterType('all')}
-                                className={`px-3 py-1 rounded-full text-sm transition-colors ${filterType === 'all'
-                                    ? 'bg-purple-700 text-white'
-                                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                                    }`}
+                                onClick={() => window.history.back()}
+                                className="p-1.5 rounded-full text-gray-300 hover:bg-gray-800/70 mr-3"
+                                aria-label="Go back"
                             >
-                                All
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
                             </button>
-                            <button
-                                onClick={() => setFilterType('veg')}
-                                className={`px-3 py-1 rounded-full text-sm flex items-center space-x-1 transition-colors ${filterType === 'veg'
-                                    ? 'bg-green-700 text-white'
-                                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                                    }`}
-                            >
-                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                <span>Veg Only</span>
-                            </button>
-                            <button
-                                onClick={() => setFilterType('nonveg')}
-                                className={`px-3 py-1 rounded-full text-sm flex items-center space-x-1 transition-colors ${filterType === 'nonveg'
-                                    ? 'bg-red-700 text-white'
-                                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                                    }`}
-                            >
-                                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                                <span>Non-Veg</span>
-                            </button>
+
+                            {/* Filter options */}
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={() => setFilterType('all')}
+                                    className={`px-3 py-1 rounded-full text-sm transition-colors ${filterType === 'all'
+                                        ? 'bg-purple-700 text-white'
+                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                        }`}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('veg')}
+                                    className={`px-3 py-1 rounded-full text-sm flex items-center space-x-1 transition-colors ${filterType === 'veg'
+                                        ? 'bg-green-700 text-white'
+                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                        }`}
+                                >
+                                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                    <span>Veg Only</span>
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('nonveg')}
+                                    className={`px-3 py-1 rounded-full text-sm flex items-center space-x-1 transition-colors ${filterType === 'nonveg'
+                                        ? 'bg-red-700 text-white'
+                                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                        }`}
+                                >
+                                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                                    <span>Non-Veg</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -698,19 +824,66 @@ export default function StallPage() {
                     Object.entries(stall.menu).map(([category, items]) => (
                         <div
                             key={category}
-                            className="mb-10"
+                            className="mb-10 relative"
                             id={`category-${category}`}
+                            ref={el => categoryContentRefs.current[category] = el}
                         >
-                            {/* Category header with toggle arrow */}
+                            {/* Invisible anchor for better scroll targeting */}
                             <div
-                                className="flex items-center justify-between border-b border-purple-800/30 pb-2 cursor-pointer"
-                                onClick={() => toggleCategory(category)}
+                                className="absolute top-0 left-0 h-2 w-full -mt-10"
+                                id={`scroll-target-${category}`}
+                            />
+
+                            {/* Category header with conditional sticky behavior */}
+                            <div
+                                ref={el => categoryHeaderRefs.current[category] = el}
+                                className={`${stickyCategoryId === category || pushingCategoryId === category
+                                    ? 'sticky bg-black shadow-lg will-change-transform'
+                                    : 'bg-black'}`} // Add background to non-sticky state too for consistency
+                                style={{
+                                    top: (stickyCategoryId === category || pushingCategoryId === category)
+                                        ? `${95 + (navRef.current?.offsetHeight || 0)}px`
+                                        : 'auto',
+                                    // Perfect box-pushing transform
+                                    transform: stickyCategoryId === category && pushingCategoryId
+                                        ? `translateY(-${pushProgress * 100}%)`
+                                        : pushingCategoryId === category
+                                            ? `translateY(${(1 - pushProgress) * 100}%)`
+                                            : 'translateY(0)',
+                                    // Maintain full opacity
+                                    opacity: 1,
+                                    // Z-index management
+                                    zIndex: pushingCategoryId === category ? 9 : 10,
+                                    // NO transition - critical for physical feel
+                                    transition: 'none',
+                                    // Apply border to ALL states, not just sticky
+                                    borderBottom: '1px solid rgba(126, 34, 206, 0.3)',
+                                    // Apply consistent padding to create uniform box height
+                                    padding: '0px',
+                                    // Remove any margin that might be creating gaps
+                                    margin: '0px',
+                                    // Ensure overflow is properly handled
+                                    overflow: 'hidden'
+                                }}
                             >
-                                <h2 className={`${crimsonText.className} text-2xl font-semibold text-white mb-0`}>
-                                    {category}
-                                </h2>
-                                <div className={`transform transition-transform duration-300 ${expandedCategories[category] ? 'rotate-180' : ''}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                {/* Category header content - ensure consistent inner padding */}
+                                <div
+                                    className="flex items-center justify-between py-3 px-1 cursor-pointer"
+                                    onClick={() => toggleCategory(category)}
+                                >
+                                    <h2 className={`${crimsonText.className} text-2xl font-semibold text-white mb-0`}>
+                                        {category}
+                                    </h2>
+
+                                    {/* Arrow icon that rotates based on expanded state */}
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className={`h-5 w-5 text-purple-400 transform transition-transform duration-300 ${expandedCategories[category] ? 'rotate-180' : 'rotate-0'
+                                            }`}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </div>
@@ -789,7 +962,7 @@ export default function StallPage() {
                     </div>
                 ) : (
                     // NEW Expanded floating categories list - Shows only the category names
-                    <div className="bg-gray-900/95 backdrop-blur-md p-4 rounded-xl shadow-xl border border-purple-800/40 max-w-xs w-64 animate-fadeIn">
+                    <div className="bg-gray-900/95 backdrop-blur-md p-4 rounded-xl shadow-xl border border-purple-800/40 max-w-xs w-95 animate-fadeIn">
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="text-white font-medium">Categories</h3>
                             <button
@@ -802,7 +975,7 @@ export default function StallPage() {
                             </button>
                         </div>
 
-                        <div className="space-y-1.5 max-h-64 overflow-y-auto hide-scrollbar">
+                        <div className="space-y-1.5 max-h-95 overflow-y-auto hide-scrollbar">
                             {Object.keys(stall.menu).map((category, index) => (
                                 <button
                                     key={category}

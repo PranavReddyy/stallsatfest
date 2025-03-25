@@ -323,10 +323,7 @@ export default function AdminDashboard() {
             <h1 className={`${crimsonText.className} text-2xl font-bold text-white`}>
                 Aeon Stalls Dashboard
             </h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <CacheManagement />
-                {/* Other dashboard cards */}
-            </div>
+            <CacheManagement />
 
             {loading ? (
                 <div className="flex justify-center items-center h-64">
