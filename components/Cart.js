@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Crimson_Text } from 'next/font/google';
 import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, updateDoc, runTransaction } from 'firebase/firestore';
 
 const crimsonText = Crimson_Text({
     weight: ['400', '600', '700'],
@@ -379,18 +379,13 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
             // Show success message for 1.5 seconds before completing the order
             setTimeout(async () => {
                 try {
-                    // Generate a proper order ID
-                    const orderPrefix = "AEON";
-                    const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-                    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
-                    const orderId = `${orderPrefix}-${dateStr}-${randomPart}`;
-
+                    // Generate a payment ID (we'll still use a random one)
                     const paymentId = `PAYMENT${Math.floor(Math.random() * 100000)}`;
                     const timestamp = new Date().toISOString();
 
                     // Calculate university cut (10%) and vendor cut (90%)
-                    const universityCut = Math.round(totalPrice * 0.1); // 10% for university
-                    const vendorCut = totalPrice - universityCut; // 90% for vendor
+                    const universityCut = Math.round(totalPrice * 0.1);
+                    const vendorCut = totalPrice - universityCut;
 
                     // Format items for storage
                     const formattedItems = groupedItems().map(group => ({
@@ -402,9 +397,39 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                         extras: group.selectedExtras ? group.selectedExtras.join(', ') : ''
                     }));
 
+                    let orderId;
+
+                    // Get next order ID using a transaction to ensure uniqueness
+                    try {
+                        // Use a transaction to safely increment the counter
+                        await runTransaction(db, async (transaction) => {
+                            const counterRef = doc(db, "counters", "orders");
+                            const counterDoc = await transaction.get(counterRef);
+
+                            if (!counterDoc.exists()) {
+                                // If counter doesn't exist yet, create it
+                                transaction.set(counterRef, { value: 1 });
+                                orderId = 1;
+                            } else {
+                                // Increment the counter
+                                const newValue = counterDoc.data().value + 1;
+                                transaction.update(counterRef, { value: newValue });
+                                orderId = newValue;
+                            }
+                        });
+
+                        console.log(`Generated new order ID: ${orderId}`);
+                    } catch (error) {
+                        // Fallback to timestamp-based ID if transaction fails
+                        console.error("Failed to get incrementing order ID:", error);
+                        const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, "");
+                        const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+                        orderId = `AEON-${dateStr}-${randomPart}`;
+                    }
+
                     // Create the order data structure
                     const orderData = {
-                        order_id: orderId,
+                        order_id: orderId.toString(), // Convert to string for consistency
                         stall_id: stallId,
                         stall_name: stallName,
                         customer_info: {
@@ -432,7 +457,7 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                         // Set confirmed order data
                         setConfirmedOrder({
                             ...orderData,
-                            order_id: orderId
+                            order_id: orderId.toString() // Ensure it's a string
                         });
 
                         // Hide payment gateway
@@ -454,8 +479,6 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                                 item.updateQuantity(0);
                             }
                         });
-
-                        // DO NOT clear cart until user dismisses confirmation
 
                     } catch (error) {
                         console.error("Error in payment process:", error);
@@ -965,7 +988,9 @@ export default function Cart({ items, show, onClose, setCart, stallId, stallName
                                 <div className="bg-purple-900/30 border border-purple-800/30 rounded-lg p-3 mb-3">
                                     <div className="grid grid-cols-2 gap-1 text-sm">
                                         <h4 className="text-white text-xs font-medium">Order ID</h4>
-                                        <span className="text-purple-300 font-mono text-xs text-right break-all">{confirmedOrder.order_id}</span>
+                                        <span className="text-purple-300 font-mono text-xs text-right break-all">
+                                            #{confirmedOrder.order_id}
+                                        </span>
 
                                         <h4 className="text-white text-xs font-medium">Date & Time</h4>
                                         <span className="text-gray-300 text-xs text-right">
